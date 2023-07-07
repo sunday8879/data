@@ -1,0 +1,29 @@
+import os
+import numpy as np
+from glob import glob
+import datetime as dt
+
+# directory1 = 'natf'
+source_path = "/path2file/"
+
+year = 2018
+month = np.array([1,2,3,4,5,6,7,8,9,10,11,12])
+ndays = np.array([31,28,31,30,31,30,31,31,30,31,30,31])
+
+# date = 181201
+# nday = 31
+
+for i in range(0,len(month)):
+    nday = ndays[i]
+    first_day = dt.datetime(year, month[i], 1)  # The first day of each month
+    for n in range(0,nday):
+        date = first_day + dt.timedelta(days=n)
+        datestr = dt.datetime.strftime(date,'%Y%m%d')
+        # datestr = str(first_day + n)
+        parent_dir = os.path.join(source_path, datestr)
+        if not os.path.exists(parent_dir):
+            os.mkdir(parent_dir)    
+        orfiles = sorted(glob(source_path + '/*'+datestr+'*.nc'))
+        for ifile,file in enumerate(orfiles):
+            filename = os.path.basename(file)
+            os.rename(source_path + filename, parent_dir + '/' + filename)
