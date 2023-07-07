@@ -1,0 +1,118 @@
+import h5py
+import numpy as np
+import os
+import glob
+import matplotlib.pyplot as plt
+import cartopy
+import json
+
+
+latmin, latmax, lonmin, lonmax= 32, 56, 45, 85 #central asia
+
+
+sdsname = 'UVAerosolIndex'
+
+prj1 = cartopy.crs.PlateCarree()
+
+cmap = plt.cm.get_cmap('turbo')
+
+
+    
+with open('/Users/sangdi/dust/epic/data/filelistm01t.txt') as f1:
+    filelist1 = f1.read().splitlines() 
+f1.close()
+datadir = '/Users/epic/data/'
+datasto = '/Users/epic/grid/'
+
+filelist=[]
+for file1 in filelist1:
+    filename1 = str(file1)
+    filen = glob.glob(os.path.join(datadir,filename1))
+    filelist.append(filen)
+                                       
+                                       
+for file in filelist:
+    filename = file[0]
+    # time = datetime.datetime.strptime(filename.split('_')[5],'%Y%m%d%H%M%S')
+    time1=str(filename.split('_')[5])
+    path1 = os.path.join(datasto, time1)
+    if not os.path.exists(path1):
+        os.mkdir(path1)
+    f = h5py.File(file[0], mode='r')
+    # with h5py.File(filename, mode='r') as f:
+    DATA_NAME = '/HDFEOS/SWATHS/Aerosol NearUV Swath/Data Fields/'+sdsname
+    LAT_NAME  = '/HDFEOS/SWATHS/Aerosol NearUV Swath/Geolocation Fields/Latitude'
+    LON_NAME  = '/HDFEOS/SWATHS/Aerosol NearUV Swath/Geolocation Fields/Longitude'				
+
+    dset = f[DATA_NAME]
+    lat = f[LAT_NAME][:]
+    lon = f[LON_NAME][:]
+    
+     			# Get attributes needed for the plot.
+     			# String attributes actually come in as the bytes type and should be decoded to UTF-8 (python3).
+     			#title = dset.attrs['long_name'].decode()
+     			#units = dset.attrs['units'].decode()
+    _FillValue = dset.attrs['_FillValue']
+
+    data = dset[:]
+    vmin,vmax = -1,3
+    lat[np.isinf(lat)] = _FillValue
+    lon[np.isinf(lon)] = _FillValue
+
+    data[data==_FillValue] = np.nan
+    lat[lat==_FillValue] = np.nan
+    lon[lon==_FillValue] = np.nan
+
+
+     			#slicing
+    idx = np.argwhere( (lat>=latmin)&(lat<=latmax)&(lon>=lonmin)&(lon<=lonmax) )
+    
+    lat = lat[ idx.min(axis=0)[0]:idx.max(axis=0)[0], idx.min(axis=0)[1]:idx.max(axis=0)[1]  ]
+    lon = lon[ idx.min(axis=0)[0]:idx.max(axis=0)[0], idx.min(axis=0)[1]:idx.max(axis=0)[1]  ]
+    				#qa = qa[ idx.min(axis=0)[0]:idx.max(axis=0)[0], idx.min(axis=0)[1]:idx.max(axis=0)[1]  ]
+    				#typ = typ[ idx.min(axis=0)[0]:idx.max(axis=0)[0], idx.min(axis=0)[1]:idx.max(axis=0)[1]  ]
+    				#scanT = scanT[ idx.min(axis=0)[0]:idx.max(axis=0)[0] ]
+    data = data[ idx.min(axis=0)[0]:idx.max(axis=0)[0], idx.min(axis=0)[1]:idx.max(axis=0)[1]  ]
+    ### regrid test
+    lon = lon.flatten()
+    lat = lat.flatten()
+    UAI = data.flatten()
+    
+           
+    lon[lon<45]=np.nan
+    lon[lon>85]=np.nan
+    
+    lat[lat<32]=np.nan
+    lat[lat>56]=np.nan
+    
+    UAI[np.isnan(lon)] = np.nan
+    UAI[np.isnan(lat)] = np.nan
+    
+    nan_array = np.isnan(UAI)
+    not_nan_array = ~ nan_array
+    
+    a1 = UAI[not_nan_array]
+    lo = lon[not_nan_array]
+    la = lat[not_nan_array]
+    
+        # create Lat and Lon array with 0.25 degree interval
+    Lat = np.arange(32.125,56,0.25)
+    Lon = np.arange(45.125,85,0.25)
+    
+    
+    
+    for irow in range(len(Lat)):
+    # for irow in range(1):
+        for icol in range(len(Lon)):
+    #     for icol in range(2):
+            record = {};
+            record['Latitude'] = Lat[irow]
+            record['Longitude'] = Lon[icol]
+            # filter data inside row/col = irow/icol
+            values = a1[(la>=(Lat[irow]-0.125)) & (la<(Lat[irow]+0.125)) & (lo>=(Lon[icol]-0.125)) & (lo<(Lon[icol]+0.125))]
+            record['UAI'] = values.tolist()
+            record['Count'] = len(values)
+    #         print(len(values))
+            # save record to txt file
+            fname = path1 + "/record_"+"row"+str(irow)+"col"+str(icol)+".txt"
+            json.dump(record, open(fname,'w'))
