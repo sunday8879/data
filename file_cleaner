@@ -1,0 +1,20 @@
+import os
+from glob import glob
+
+source_path = "/path2file/"
+
+
+date = 180401
+nday = 30
+
+for n in range(0,nday):
+    datestr = str(date + n)
+    parent_dir = os.path.join(source_path, datestr)
+    orfiles = sorted(glob(parent_dir + '/' + datestr + 'MSG1*.zip'))
+    for ifile,file in enumerate(orfiles):
+        filename = os.path.basename(file)
+#        print(filename)
+        if os.path.exists(os.path.join(parent_dir, filename)):
+            os.remove(os.path.join(parent_dir, filename))
+#        else:
+#            print("The file does not exist")
